@@ -2,7 +2,7 @@
 from typing import List
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from conditional_gan.utils.torch_utils import initialize_weights
 
@@ -52,6 +52,15 @@ class VanillaNet(nn.Module):
         initialize_weights(self.modules())
 
     def forward(self, x: torch.Tensor, labels: List = None) -> torch.Tensor:
+        """Forward pass of the Vanilla GAN model.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, latent).
+            labels (List, optional): List of labels for conditional generation. Default is None.
+
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, channels, image_size, image_size).
+        """
         conditional_inputs = torch.cat([x, self.label_embedding(labels)], -1)
         x = self.backbone(conditional_inputs)
         return x.reshape(x.size(0), self.channels, self.image_size, self.image_size)

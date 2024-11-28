@@ -1,23 +1,30 @@
 # Copyright (c) AlphaBetter. All rights reserved.
+from typing import List
+
 import torch
-import torch.nn as nn
+from torch import nn
+
+from conditional_gan.utils.torch_utils import initialize_weights
+
+__all__ = [
+    "Discriminator",
+]
 
 
-class DiscriminatorForMNIST(nn.Module):
-    r""" It is mainly based on the mobile net network as the backbone network discriminator.
-
-    Args:
-        image_size (int): The size of the image. (Default: 28)
-        channels (int): The channels of the image. (Default: 1)
-        num_classes (int): Number of classes for dataset. (Default: 10)
-    """
-
+class Discriminator(nn.Module):
     def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10) -> None:
-        super(DiscriminatorForMNIST, self).__init__()
+        """Discriminator model architecture.
 
+        Args:
+            image_size (int, optional): Size of the generated square image (height = width). Default is 28 (e.g., for MNIST).
+            channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
+            num_classes (int, optional): Number of classes for conditional generation. Default is 10.
+        """
+        super().__init__()
+        # Embedding layer for the labels.
         self.label_embedding = nn.Embedding(num_classes, num_classes)
 
-        self.main = nn.Sequential(
+        self.backbone = nn.Sequential(
             nn.Linear(channels * image_size * image_size + num_classes, 512),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
 
@@ -29,47 +36,19 @@ class DiscriminatorForMNIST(nn.Module):
         )
 
         # Initializing all neural network weights.
-        self._initialize_weights()
+        initialize_weights(self.modules())
 
-    def forward(self, inputs: torch.Tensor, labels: list = None) -> torch.Tensor:
-        r""" Defines the computation performed at every call.
+    def forward(self, x: torch.Tensor, labels: List = None) -> torch.Tensor:
+        """Forward pass of the Vanilla GAN model.
 
         Args:
-            inputs (tensor): input tensor into the calculation.
-            labels (list):  input tensor label.
+            x (torch.Tensor): Input tensor of shape (batch_size, latent).
+            labels (List, optional): List of labels for conditional generation. Default is None.
 
         Returns:
-            A four-dimensional vector (N*C*H*W).
+            torch.Tensor: Output tensor of shape (batch_size, channels, image_size, image_size).
         """
-        inputs = torch.flatten(inputs, 1)
-        conditional = self.label_embedding(labels)
-        conditional_inputs = torch.cat([inputs, conditional], dim=-1)
-        out = self.main(conditional_inputs)
-
-        return out
-
-    def _initialize_weights(self) -> None:
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight)
-                m.weight.data *= 0.1
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.normal_(m.weight, 1.0, 0.02)
-                m.weight.data *= 0.1
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
-                m.weight.data *= 0.1
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-
-
-def discriminator_for_mnist(image_size: int = 28, channels: int = 1) -> DiscriminatorForMNIST:
-    r"""GAN model architecture from the `"One weird trick..." <https://arxiv.org/abs/1406.2661>` paper.
-    """
-    model = DiscriminatorForMNIST(image_size, channels)
-
-    return model
+        x = torch.flatten(x, 1)
+        label_embedding = self.label_embedding(labels)
+        x = torch.cat([x, label_embedding], dim=-1)
+        return self.backbone(x)
