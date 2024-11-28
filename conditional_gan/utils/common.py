@@ -14,7 +14,7 @@
 import logging
 import os
 
-import cgan_pytorch.models as models
+import conditional_gan.models as models
 
 __all__ = [
     "create_folder", "configure", "AverageMeter", "ProgressMeter"

@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from cgan_pytorch.models import cgan
+from conditional_gan.models import cgan
 
 model = cgan(pretrained=True)
 print(model)

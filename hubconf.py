@@ -19,7 +19,7 @@ Usage:
 import torch
 from torch.hub import load_state_dict_from_url
 
-from cgan_pytorch.models.generator import Generator
+from conditional_gan.models.vanilla_net import VanillaNet
 
 model_urls = {
     "cgan": "https://github.com/Lornatang/CGAN-PyTorch/releases/download/v0.2.0/CGAN_MNIST-5fda105b1f24ad665b105873e9b8dcfc838bd892bce9373ac3035d109c61ed6e.pth"
@@ -28,7 +28,7 @@ model_urls = {
 dependencies = ["torch"]
 
 
-def create(arch: str, image_size: int, channels: int, pretrained: bool, progress: bool) -> Generator:
+def create(arch: str, image_size: int, channels: int, pretrained: bool, progress: bool) -> VanillaNet:
     r""" Used to create GAN model.
 
     Args:
@@ -41,7 +41,7 @@ def create(arch: str, image_size: int, channels: int, pretrained: bool, progress
     Returns:
         Generator model.
     """
-    model = Generator(image_size, channels)
+    model = VanillaNet(image_size, channels)
 
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress, map_location=torch.device("cpu"))
@@ -50,7 +50,7 @@ def create(arch: str, image_size: int, channels: int, pretrained: bool, progress
     return model
 
 
-def cgan(pretrained: bool = False, progress: bool = True) -> Generator:
+def cgan(pretrained: bool = False, progress: bool = True) -> VanillaNet:
     r"""GAN model architecture from the `"One weird trick..." <https://arxiv.org/abs/1411.1784>` paper.
 
     Args:

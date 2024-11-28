@@ -29,12 +29,12 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.utils.tensorboard import SummaryWriter
 
-import cgan_pytorch.models as models
-from cgan_pytorch.models.discriminator import discriminator_for_mnist
-from cgan_pytorch.utils.common import AverageMeter
-from cgan_pytorch.utils.common import ProgressMeter
-from cgan_pytorch.utils.common import configure
-from cgan_pytorch.utils.common import create_folder
+import conditional_gan.models as models
+from conditional_gan.models.discriminator import discriminator_for_mnist
+from conditional_gan.utils.common import AverageMeter
+from conditional_gan.utils.common import ProgressMeter
+from conditional_gan.utils.common import configure
+from conditional_gan.utils.common import create_folder
 
 # Find all available models.
 model_names = sorted(name for name in models.__dict__ if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
@@ -60,7 +60,7 @@ def main(args):
         cudnn.deterministic = True
 
     if args.gpu is not None:
-        logger.warning("You have chosen a specific GPU. This will completely disable data parallelism.")
+        logger.warning("You have chosen a specific GPU. This will completely disable datasets parallelism.")
 
     if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
@@ -198,7 +198,7 @@ def main_worker(ngpus_per_node, args):
 
         end = time.time()
         for i, (inputs, target) in enumerate(dataloader):
-            # Move data to special device.
+            # Move datasets to special device.
             if args.gpu is not None:
                 inputs = inputs.cuda(args.gpu, non_blocking=True)
                 target = target.cuda(args.gpu, non_blocking=True)
@@ -210,7 +210,7 @@ def main_worker(ngpus_per_node, args):
 
             noise = torch.randn([batch_size, 100])
             conditional = torch.randint(0, 10, (batch_size,))
-            # Move data to special device.
+            # Move datasets to special device.
             if args.gpu is not None:
                 noise = noise.cuda(args.gpu, non_blocking=True)
                 conditional = conditional.cuda(args.gpu, non_blocking=True)
@@ -292,10 +292,10 @@ if __name__ == "__main__":
                         help="Model architecture: " +
                              " | ".join(model_names) +
                              ". (Default: `cgan`)")
-    parser.add_argument("data", metavar="DIR",
+    parser.add_argument("datasets", metavar="DIR",
                         help="Path to dataset.")
     parser.add_argument("--workers", default=4, type=int,
-                        help="Number of data loading workers. (Default: 4)")
+                        help="Number of datasets loading workers. (Default: 4)")
     parser.add_argument("--epochs", default=128, type=int,
                         help="Number of total epochs to run. (Default: 128)")
     parser.add_argument("--start-epoch", default=0, type=int,
@@ -330,7 +330,7 @@ if __name__ == "__main__":
                         help="Use multi-processing distributed training to launch "
                              "N processes per node, which has N GPUs. This is the "
                              "fastest way to use PyTorch for either single node or "
-                             "multi node data parallel training.")
+                             "multi node datasets parallel training.")
     args = parser.parse_args()
 
     print("##################################################\n")

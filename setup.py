@@ -21,7 +21,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 # Configure library params.
-NAME = "cgan_pytorch"
+NAME = "conditional_gan"
 DESCRIPTION = "Research on the technology of GAN."
 URL = "https://github.com/Lornatang/CGAN-PyTorch"
 EMAIL = "liu_changyu@dakewe.com"

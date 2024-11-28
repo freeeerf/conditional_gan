@@ -21,9 +21,9 @@ import torch
 import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
 
-import cgan_pytorch.models as models
-from cgan_pytorch.utils import configure
-from cgan_pytorch.utils import create_folder
+import conditional_gan.models as models
+from conditional_gan.utils import configure
+from conditional_gan.utils import create_folder
 
 # Find all available models.
 model_names = sorted(name for name in models.__dict__ if name.islower() and not name.startswith("__") and callable(models.__dict__[name]))
@@ -66,7 +66,7 @@ def main(args):
     logger.info("Randomly generate a Gaussian noise image.")
     noise = torch.randn([args.num_images, 100])
     conditional = torch.randint(args.conditional, args.conditional + 1, (args.num_images,))
-    # Move data to special device.
+    # Move datasets to special device.
     if args.gpu is not None:
         noise = noise.cuda(args.gpu)
         conditional = conditional.cuda(args.gpu)
