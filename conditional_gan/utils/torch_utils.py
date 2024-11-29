@@ -1,8 +1,8 @@
 # Copyright (c) AlphaBetter. All rights reserved.
 from typing import Iterator
+
 import torch
 from torch import nn
-from fvcore.nn import FlopCountAnalysis
 
 __all__ = [
     "get_gpu_info", "get_model_info", "initialize_weights",
