@@ -103,10 +103,6 @@ class Trainer:
         self.d_x_losses: AverageMeter = AverageMeter("D(x)", ":.4e")
         self.d_g_z1_losses: AverageMeter = AverageMeter("D(G(z1))", ":.4e")
         self.d_g_z2_losses: AverageMeter = AverageMeter("D(G(z2))", ":.4e")
-        self.progress: ProgressMeter = ProgressMeter(
-            self.num_train_batch,
-            [self.batch_time, self.data_time, self.d_losses, self.g_losses, self.d_x_losses, self.d_g_z1_losses, self.d_g_z2_losses],
-            prefix=f"Epoch: [{self.current_epoch}]")
 
         # eval for training
         self.fixed_noise = torch.randn([self.train_batch_size, 100], device=device)
@@ -309,6 +305,11 @@ class Trainer:
                 LOGGER.warning(f"Loading state_dict from {resume_d} failed, train from scratch...")
 
     def _train(self) -> None:
+        progress = ProgressMeter(
+            self.num_train_batch,
+            [self.batch_time, self.data_time, self.d_losses, self.g_losses, self.d_x_losses, self.d_g_z1_losses, self.d_g_z2_losses],
+            prefix=f"Epoch: [{self.current_epoch}]")
+
         end = time.time()
         for i, (inputs, target) in enumerate(self.train_dataloader):
             # Move datasets to special device.
@@ -400,7 +401,7 @@ class Trainer:
                 self.tblogger.add_scalar("Train/D_x", d_x.item(), iters)
                 self.tblogger.add_scalar("Train/D_G_z1", d_g_z1.item(), iters)
                 self.tblogger.add_scalar("Train/D_G_z2", d_g_z2.item(), iters)
-                self.progress.display(i + 1)
+                progress.display(i + 1)
 
     def train(self) -> None:
         try:
