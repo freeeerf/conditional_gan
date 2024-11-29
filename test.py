@@ -30,7 +30,7 @@ model_names = sorted(name for name in models.__dict__ if name.islower() and not 
 
 # It is a convenient method for simple scripts to configure the log package at one time.
 logger = logging.getLogger(__name__)
-logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
+# logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
 
 
 def main(args):
