@@ -12,14 +12,14 @@ __all__ = [
 
 
 class VanillaNet(nn.Module):
-    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10, latent: int = 100) -> None:
+    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10, latent_dim: int = 100) -> None:
         """Implementation of the Vanilla GAN model.
 
         Args:
             image_size (int, optional): Size of the generated square image (height = width). Default is 28 (e.g., for MNIST).
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
-            latent (int, optional): Dimension of the latent noise vector. Default is 100.
+            latent_dim (int, optional): Dimension of the latent noise vector. Default is 100.
         """
         super().__init__()
         self.image_size = image_size
@@ -29,7 +29,7 @@ class VanillaNet(nn.Module):
         self.label_embedding = nn.Embedding(num_classes, num_classes)
 
         self.backbone = nn.Sequential(
-            nn.Linear(latent + num_classes, 128),
+            nn.Linear(latent_dim + num_classes, 128),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
 
             nn.Linear(128, 256),

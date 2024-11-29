@@ -34,3 +34,4 @@ _darcs
 
 # project dirs
 datasets/*
+results/*
