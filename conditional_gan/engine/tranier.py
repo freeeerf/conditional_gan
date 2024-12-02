@@ -304,104 +304,6 @@ class Trainer:
             else:
                 LOGGER.warning(f"Loading state_dict from {resume_d} failed, train from scratch...")
 
-    def _train(self) -> None:
-        progress = ProgressMeter(
-            self.num_train_batch,
-            [self.batch_time, self.data_time, self.d_losses, self.g_losses, self.d_x_losses, self.d_g_z1_losses, self.d_g_z2_losses],
-            prefix=f"Epoch: [{self.current_epoch}]")
-
-        end = time.time()
-        for i, (inputs, target) in enumerate(self.train_dataloader):
-            # Move datasets to special device.
-            inputs = inputs.to(device=self.device, non_blocking=True)
-            target = target.to(device=self.device, non_blocking=True)
-            batch_size = inputs.size(0)
-
-            # The real sample label is 1, and the generated sample label is 0.
-            real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
-            fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
-
-            noise = torch.randn([batch_size, 100], device=self.device)
-            conditional = torch.randint(0, 10, (batch_size,), device=self.device)
-
-            ##############################################
-            # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
-            # Start training the discriminator model
-            ##############################################
-            # Set discriminator gradients to zero.
-            self.d_model.zero_grad()
-
-            # During discriminator model training, enable discriminator model backpropagation
-            for d_parameters in self.d_model.parameters():
-                d_parameters.requires_grad = True
-
-            # Train with real.
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                real_output = self.d_model(inputs, target)
-                d_loss_real = self.adv_criterion(real_output, real_label)
-            # Call the gradient scaling function in the mixed precision API to
-            # bp the gradient information of the fake samples
-            self.scaler.scale(d_loss_real).backward()
-            d_x = real_output.mean()
-
-            # Train with fake.
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                fake = self.g_model(noise, conditional)
-                fake_output = self.d_model(fake.detach(), conditional)
-                d_loss_fake = self.adv_criterion(fake_output, fake_label)
-            # Call the gradient scaling function in the mixed precision API to
-            # bp the gradient information of the fake samples
-            self.scaler.scale(d_loss_fake).backward()
-
-            # Calculate the total discriminator loss value
-            d_loss = d_loss_real + d_loss_fake
-            d_g_z1 = fake_output.mean()
-            self.scaler.step(self.d_optimizer)
-            self.scaler.update()
-            # Finish training the discriminator model
-
-            ##############################################
-            # (2) Update G network: min E(z)[log(1- D(z))]
-            # Start training the generator model
-            ##############################################
-            # Initialize generator model gradients
-            self.g_optimizer.zero_grad()
-
-            # During generator training, turn off discriminator backpropagation
-            for d_parameters in self.d_model.parameters():
-                d_parameters.requires_grad = False
-
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                fake_output = self.d_model(fake, conditional)
-                g_loss = self.adv_criterion(fake_output, real_label)
-            # Call the gradient scaling function in the mixed precision API to
-            # bp the gradient information of the fake samples
-            self.scaler.scale(g_loss).backward()
-            # Encourage the generator to generate higher quality fake samples, making it easier to fool the discriminator
-            self.scaler.step(self.g_optimizer)
-            self.scaler.update()
-            d_g_z2 = fake_output.mean()
-
-            # Statistical accuracy and loss value for terminal data output
-            batch_size = inputs.size(0)
-            self.d_losses.update(d_loss.item(), batch_size)
-            self.g_losses.update(g_loss.item(), batch_size)
-            self.d_x_losses.update(d_x.item(), batch_size)
-            self.d_g_z1_losses.update(d_g_z1.item(), batch_size)
-            self.d_g_z2_losses.update(d_g_z2.item(), batch_size)
-
-            # Calculate the time it takes to fully train a batch of data
-            self.batch_time.update(time.time() - end)
-            end = time.time()
-
-            if i % 100 == 0 or i == self.num_train_batch - 1:
-                iters = i + self.current_epoch * self.train_batch_size + 1
-                self.tblogger.add_scalar("Train/D_Loss", d_loss.item(), iters)
-                self.tblogger.add_scalar("Train/G_Loss", g_loss.item(), iters)
-                self.tblogger.add_scalar("Train/D_x", d_x.item(), iters)
-                self.tblogger.add_scalar("Train/D_G_z1", d_g_z1.item(), iters)
-                self.tblogger.add_scalar("Train/D_G_z2", d_g_z2.item(), iters)
-                progress.display(i + 1)
 
     def train(self) -> None:
         try:
@@ -439,7 +341,95 @@ class Trainer:
             self.train_dataloader.sampler.set_epoch(self.current_epoch)
 
     def train_one_epoch(self):
-        self._train()
+        progress = ProgressMeter(
+            self.num_train_batch,
+            [self.batch_time, self.data_time, self.d_losses, self.g_losses, self.d_x_losses, self.d_g_z1_losses, self.d_g_z2_losses],
+            prefix=f"Epoch: [{self.current_epoch}]")
+
+        end = time.time()
+        for i, (inputs, target) in enumerate(self.train_dataloader):
+            # Move datasets to special device.
+            inputs = inputs.to(device=self.device, non_blocking=True)
+            target = target.to(device=self.device, non_blocking=True)
+            batch_size = inputs.size(0)
+
+            # The real sample label is 1, and the generated sample label is 0.
+            real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
+            fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
+
+            noise = torch.randn([batch_size, 100], device=self.device)
+            fake_conditional = torch.randint(1, 2, (batch_size,), device=self.device)
+
+            ##############################################
+            # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
+            # Start training the discriminator model
+            ##############################################
+            # Set discriminator gradients to zero.
+            self.d_model.zero_grad()
+
+            # Train with real.
+            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+                real_output = self.d_model(inputs, target)
+                d_loss_real = self.adv_criterion(real_output, real_label)
+            # Call the gradient scaling function in the mixed precision API to
+            # bp the gradient information of the fake samples
+            self.scaler.scale(d_loss_real).backward()
+            d_x = real_output.mean()
+
+            # Train with fake.
+            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+                fake = self.g_model(noise, fake_conditional)
+                fake_output = self.d_model(fake.detach(), fake_conditional)
+                d_loss_fake = self.adv_criterion(fake_output, fake_label)
+            # Call the gradient scaling function in the mixed precision API to
+            # bp the gradient information of the fake samples
+            self.scaler.scale(d_loss_fake).backward()
+
+            # Calculate the total discriminator loss value
+            d_loss = d_loss_real + d_loss_fake
+            d_g_z1 = fake_output.mean()
+            self.scaler.step(self.d_optimizer)
+            self.scaler.update()
+            # Finish training the discriminator model
+
+            ##############################################
+            # (2) Update G network: min E(z)[log(1- D(z))]
+            # Start training the generator model
+            ##############################################
+            # Initialize generator model gradients
+            self.g_optimizer.zero_grad()
+
+            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+                fake_output = self.d_model(fake, fake_conditional)
+                g_loss = self.adv_criterion(fake_output, real_label)
+            # Call the gradient scaling function in the mixed precision API to
+            # bp the gradient information of the fake samples
+            self.scaler.scale(g_loss).backward()
+            # Encourage the generator to generate higher quality fake samples, making it easier to fool the discriminator
+            self.scaler.step(self.g_optimizer)
+            self.scaler.update()
+            d_g_z2 = fake_output.mean()
+
+            # Statistical accuracy and loss value for terminal data output
+            batch_size = inputs.size(0)
+            self.d_losses.update(d_loss.item(), batch_size)
+            self.g_losses.update(g_loss.item(), batch_size)
+            self.d_x_losses.update(d_x.item(), batch_size)
+            self.d_g_z1_losses.update(d_g_z1.item(), batch_size)
+            self.d_g_z2_losses.update(d_g_z2.item(), batch_size)
+
+            # Calculate the time it takes to fully train a batch of data
+            self.batch_time.update(time.time() - end)
+            end = time.time()
+
+            if i % 100 == 0 or i == self.num_train_batch - 1:
+                iters = i + self.current_epoch * self.train_batch_size + 1
+                self.tblogger.add_scalar("Train/D_Loss", d_loss.item(), iters)
+                self.tblogger.add_scalar("Train/G_Loss", g_loss.item(), iters)
+                self.tblogger.add_scalar("Train/D_x", d_x.item(), iters)
+                self.tblogger.add_scalar("Train/D_G_z1", d_g_z1.item(), iters)
+                self.tblogger.add_scalar("Train/D_G_z2", d_g_z2.item(), iters)
+                progress.display(i + 1)
 
     def after_epoch(self):
         # update g lr
