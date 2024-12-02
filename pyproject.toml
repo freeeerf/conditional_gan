@@ -12,7 +12,7 @@ requires-python = ">= 3.10"
 license.file = "LICENSE"
 keywords = ["machine-learning", "deep-learning", "computer-vision", "ML", "DL", "AI"]
 authors = [
-    { name = "Lornatang", email = "https://github.com/Lornatang" },
+    { name = "Lornatang", email = "liuchangyu1111@gmail.com" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

@@ -68,7 +68,7 @@ class Trainer:
 
         # ========== Init all objects ==========
         # datasets
-        self.train_dataloader, self.val_dataloader = self.get_dataloader()
+        self.train_dataloader = self.get_dataloader()
         self.num_train_batch = len(self.train_dataloader)
 
         # model
@@ -124,26 +124,30 @@ class Trainer:
             LOGGER.info(f"G model summary: {g_model_info}")
             LOGGER.info(f"D model summary: {d_model_info}")
 
-    def get_dataloader(self) -> [torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
-        train_dataset = torchvision.datasets.MNIST(
-            self.dataset_train_root,
-            True,
-            transform=transforms.Compose([
-                transforms.Resize((self.train_image_size, self.train_image_size)),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))]),
-            download=True,
-        )
-        val_dataset = torchvision.datasets.MNIST(
-            self.dataset_val_root,
-            False,
-            transform=transforms.Compose([
-                transforms.Resize((self.train_image_size, self.train_image_size)),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5,), (0.5,))]),
-            download=True,
-        )
-        # generate dataset iterator
+    def get_dataloader(self) -> torch.utils.data.DataLoader:
+        if self.dataset_train_name == "mnist":
+            train_dataset = torchvision.datasets.MNIST(
+                self.dataset_train_root,
+                True,
+                transform=transforms.Compose([
+                    transforms.Resize((self.train_image_size, self.train_image_size)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,))]),
+                download=True,
+            )
+        elif self.dataset_train_name == "fashion_mnist":
+            train_dataset = torchvision.datasets.FashionMNIST(
+                self.dataset_train_root,
+                True,
+                transform=transforms.Compose([
+                    transforms.Resize((self.train_image_size, self.train_image_size)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,))]),
+                download=True,
+            )
+        else:
+            raise NotImplementedError(f"Dataset `{self.dataset_train_name}` is not implemented. Only support [`mnist`, `fashion_mnist`].")
+
         train_dataloader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=self.train_batch_size,
@@ -153,16 +157,8 @@ class Trainer:
             drop_last=True,
             persistent_workers=True,
         )
-        val_dataloader = torch.utils.data.DataLoader(
-            val_dataset,
-            batch_size=int(self.train_batch_size * 2),
-            shuffle=False,
-            num_workers=self.train_num_workers,
-            pin_memory=True,
-            drop_last=False,
-            persistent_workers=True,
-        )
-        return train_dataloader, val_dataloader
+
+        return train_dataloader
 
     def get_g_model(self) -> nn.Module:
         model_g_type = self.model_config_dict.G.TYPE
@@ -481,7 +477,7 @@ class Trainer:
             # Switch model to eval mode.
             self.g_model.eval()
             fake_image = self.g_model(self.fixed_noise, self.fixed_conditional)
-            fake_image_path = self.save_visual_dir.joinpath(f"epoch_{self.current_epoch}.jpg")
+            fake_image_path = self.save_visual_dir.joinpath(f"epoch_{self.current_epoch:04d}.jpg")
             vutils.save_image(fake_image.detach(), fake_image_path, normalize=True)
             LOGGER.info(f"Save fake image to `{fake_image_path}`")
 
@@ -533,6 +529,7 @@ def init_train_env(config_dict: DictConfig) -> [DictConfig, torch.device]:
     set_seed_everything(1 + config_dict.TRAIN.RANK, deterministic=(config_dict.TRAIN.RANK == -1))
 
     # Save the configuration
-    OmegaConf.save(config_dict, config_dict.TRAIN.SAVE_DIR / Path(save_config_name))
+    save_config_path = Path(config_dict.TRAIN.SAVE_DIR).joinpath(save_config_name)
+    OmegaConf.save(config_dict, save_config_path)
 
     return config_dict, device
