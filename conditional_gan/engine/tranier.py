@@ -106,7 +106,7 @@ class Trainer:
 
         # eval for training
         self.fixed_noise = torch.randn([self.train_batch_size, 100], device=device)
-        self.fixed_conditional = torch.randint(0, 1, (self.train_batch_size,), device=device)
+        self.fixed_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (self.train_batch_size,), device=device)
         self.save_visual_dir = self.save_dir.joinpath("visual")
         self.save_visual_dir.mkdir(parents=True, exist_ok=True)
 
@@ -300,7 +300,6 @@ class Trainer:
             else:
                 LOGGER.warning(f"Loading state_dict from {resume_d} failed, train from scratch...")
 
-
     def train(self) -> None:
         try:
             self.before_train_loop()
@@ -354,7 +353,7 @@ class Trainer:
             fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
 
             noise = torch.randn([batch_size, 100], device=self.device)
-            fake_conditional = torch.randint(1, 2, (batch_size,), device=self.device)
+            fake_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (batch_size,), device=self.device)
 
             ##############################################
             # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
