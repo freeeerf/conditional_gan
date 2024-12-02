@@ -38,8 +38,9 @@ class Trainer:
         # datasets
         self.dataset_train_name = self.dataset_config_dict.TRAIN.NAME
         self.dataset_train_root = self.dataset_config_dict.TRAIN.ROOT
-        self.dataset_val_name = self.dataset_config_dict.VAL.NAME
-        self.dataset_val_root = self.dataset_config_dict.VAL.ROOT
+        self.dataset_train_image_size = self.dataset_config_dict.TRAIN.IMAGE_SIZE
+        self.dataset_train_normalize_mean = list(self.dataset_config_dict.TRAIN.NORMALIZE.MEAN)
+        self.dataset_train_normalize_std = list(self.dataset_config_dict.TRAIN.NORMALIZE.STD)
 
         # train
         # train weights
@@ -130,9 +131,10 @@ class Trainer:
                 self.dataset_train_root,
                 True,
                 transform=transforms.Compose([
-                    transforms.Resize((self.train_image_size, self.train_image_size)),
+                    transforms.Resize((self.dataset_train_image_size, self.dataset_train_image_size)),
                     transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,))]),
+                    transforms.Normalize(self.dataset_train_normalize_mean, self.dataset_train_normalize_std),
+                ]),
                 download=True,
             )
         elif self.dataset_train_name == "fashion_mnist":
