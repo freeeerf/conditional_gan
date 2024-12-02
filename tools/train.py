@@ -1,11 +1,9 @@
 # Copyright (c) AlphaBetter. All rights reserved.
-from conditional_gan.engine import Trainer, init_train_env
 import argparse
-from pathlib import Path
 
 from omegaconf import OmegaConf
 
-yaml_file_path = Path("../configs/baseline_mnist.yaml")
+from conditional_gan.engine import Trainer, init_train_env
 
 
 def get_opts() -> argparse.Namespace:
