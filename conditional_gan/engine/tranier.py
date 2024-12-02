@@ -50,7 +50,7 @@ class Trainer:
         self.train_batch_size = self.train_config_dict.get("BATCH_SIZE", 128)
         self.train_num_workers = self.train_config_dict.get("NUM_WORKERS", 4)
         # train loss
-        self.adv_loss_function = self.train_config_dict.LOSS.get("ADV")
+        self.adv_loss_function = self.train_config_dict.LOSS.get("ADV", None)
         if self.adv_loss_function:
             self.adv_loss_type = self.adv_loss_function.get("TYPE", "mse_loss")
             self.adv_loss_weight = self.adv_loss_function.get("WEIGHT", 1.0)
