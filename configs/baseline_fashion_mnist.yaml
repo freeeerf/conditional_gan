@@ -1,5 +1,5 @@
 # Project
-EXP_NAME: "fashion_mnist-28x28"
+EXP_NAME: "baseline-fashion_mnist-28x28"
 
 # Envs
 DEVICE: "0"
@@ -23,7 +23,7 @@ MODEL:
     NUM_CLASSES: 10
     LATENT_DIM: 100
   D:
-    TYPE: "discriminator"
+    TYPE: "discriminator_for_vanilla"
     IMAGE_SIZE: 28
     CHANNELS: 1
     NUM_CLASSES: 10

@@ -1,5 +1,5 @@
 # Project
-EXP_NAME: "baseline-mnist-28x28"
+EXP_NAME: "conv-mnist-28x28"
 
 # Envs
 DEVICE: "0"
@@ -17,14 +17,14 @@ DATASET:
 # Model
 MODEL:
   G:
-    TYPE: "vanilla_net"
+    TYPE: "conv_net"
     IMAGE_SIZE: 28
     CHANNELS: 1
     NUM_CLASSES: 10
     LATENT_DIM: 100
   D:
-    TYPE: "discriminator_for_vanilla"
-    IMAGE_SIZE: 28
+    TYPE: "discriminator_for_conv"
+    image_size: 28
     CHANNELS: 1
     NUM_CLASSES: 10
 
@@ -39,7 +39,7 @@ TRAIN:
   # loss config
   LOSS:
     ADV:
-      TYPE: "l2_loss"
+      TYPE: "bce_loss"
       WEIGHT: 1.0
 
   # train solver

@@ -12,8 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from torchvision import utils as vutils
 
-from conditional_gan.models.discriminator_for_vanilla import DiscriminatorForVanilla
-from conditional_gan.models.vanilla_net import VanillaNet
+from conditional_gan.models import *
 from conditional_gan.utils.checkpoint import load_state_dict, save_checkpoint, strip_optimizer
 from conditional_gan.utils.envs import select_device, set_seed_everything
 from conditional_gan.utils.events import LOGGER, AverageMeter, ProgressMeter
@@ -107,8 +106,17 @@ class Trainer:
         self.d_g_z2_losses: AverageMeter = AverageMeter("D(G(z2))", ":.4e")
 
         # eval for training
-        self.fixed_noise = torch.randn([self.train_batch_size, 100], device=device)
-        self.fixed_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (self.train_batch_size,), device=device)
+        if self.model_config_dict.G.TYPE == "vanilla_net":
+            self.fixed_noise = torch.randn([self.train_batch_size, self.model_config_dict.G.LATENT_DIM], device=device)
+            self.fixed_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (self.train_batch_size,), device=device)
+        # elif self.model_config_dict.G.TYPE == "conv_net":
+        #     self.fixed_noise = torch.randn([self.train_batch_size, self.model_config_dict.G.LATENT_DIM, 1, 1], device=device)
+        #     self.fake_conditional = torch.randint(0,
+        #                                           self.model_config_dict.G.NUM_CLASSES - 1,
+        #                                           (self.train_batch_size, self.model_config_dict.G.NUM_CLASSES),
+        #                                           device=self.device)
+        else:
+            raise NotImplementedError(f"Model type `{self.model_config_dict.G.TYPE}` is not implemented.")
         self.save_visual_dir = self.save_dir.joinpath("visual")
         self.save_visual_dir.mkdir(parents=True, exist_ok=True)
 
@@ -171,6 +179,11 @@ class Trainer:
                                  channels=self.model_config_dict.G.CHANNELS,
                                  num_classes=self.model_config_dict.G.NUM_CLASSES,
                                  latent_dim=self.model_config_dict.G.LATENT_DIM)
+        # elif model_g_type == "conv_net":
+        #     g_model = ConvNet(image_size=self.model_config_dict.G.IMAGE_SIZE,
+        #                       channels=self.model_config_dict.G.CHANNELS,
+        #                       num_classes=self.model_config_dict.G.NUM_CLASSES,
+        #                       latent_dim=self.model_config_dict.G.LATENT_DIM)
         else:
             raise NotImplementedError(f"Model type `{model_g_type}` is not implemented.")
 
@@ -185,10 +198,14 @@ class Trainer:
 
     def get_d_model(self) -> nn.Module:
         model_d_type = self.model_config_dict.D.TYPE
-        if model_d_type == "discriminator":
+        if model_d_type == "discriminator_for_vanilla":
             d_model = DiscriminatorForVanilla(image_size=self.model_config_dict.G.IMAGE_SIZE,
                                               channels=self.model_config_dict.G.CHANNELS,
                                               num_classes=self.model_config_dict.G.NUM_CLASSES)
+        # elif model_d_type == "discriminator_for_conv":
+        #     d_model = DiscriminatorForConv(image_size=self.model_config_dict.G.IMAGE_SIZE,
+        #                                    channels=self.model_config_dict.G.CHANNELS,
+        #                                    num_classes=self.model_config_dict.G.NUM_CLASSES)
         else:
             raise NotImplementedError(f"Model type `{model_d_type}` is not implemented.")
 
@@ -269,14 +286,16 @@ class Trainer:
         return d_lr_scheduler
 
     def get_loss(self, loss_type: str) -> nn:
-        if loss_type not in ["l1_loss", "l2_loss", ]:
+        if loss_type not in ["l1_loss", "l2_loss", "bce_loss"]:
             raise NotImplementedError(
-                f"Loss type {loss_type} is not implemented. Only support [`l1_loss`, `l2_loss`].")
+                f"Loss type {loss_type} is not implemented. Only support [`l1_loss`, `l2_loss`, `bce_loss`].")
 
         if loss_type == "l1_loss":
             criterion = nn.L1Loss()
         elif loss_type == "l2_loss":
             criterion = nn.MSELoss()
+        elif loss_type == "bce_loss":
+            criterion = nn.BCELoss()
         else:
             criterion = nn.BCEWithLogitsLoss()
 
@@ -361,9 +380,19 @@ class Trainer:
             # The real sample label is 1, and the generated sample label is 0.
             real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
             fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
-
-            noise = torch.randn([batch_size, 100], device=self.device)
-            fake_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (batch_size,), device=self.device)
+            if self.model_config_dict.G.TYPE == "vanilla_net":
+                noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM], device=self.device)
+                fake_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (batch_size,), device=self.device)
+            # elif self.model_config_dict.G.TYPE == "conv_net":
+            #     target = F_torch.one_hot(torch.arange(self.model_config_dict.G.NUM_CLASSES), self.model_config_dict.G.NUM_CLASSES)[target.cpu()].to(
+            #         self.device).float()
+            #     noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM, 1, 1], device=self.device)
+            #     fake_conditional = torch.randint(0,
+            #                                      self.model_config_dict.G.NUM_CLASSES - 1,
+            #                                      (batch_size, self.model_config_dict.G.NUM_CLASSES),
+            #                                      device=self.device)
+            else:
+                raise NotImplementedError(f"Model type `{self.model_config_dict.G.TYPE}` is not implemented.")
 
             ##############################################
             # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
