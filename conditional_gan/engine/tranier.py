@@ -117,6 +117,7 @@ class Trainer:
         # Define the path to save the model
         self.save_checkpoint_dir = self.save_dir.joinpath("weights")
 
+        LOGGER.info(f"Results save to `{self.save_dir}`")
         if self.verbose:
             g_model_info = get_model_info(self.g_model, self.train_image_size, self.device)
             d_model_info = get_model_info(self.d_model, self.train_image_size, self.device)
@@ -485,7 +486,7 @@ class Trainer:
             self.g_model.eval()
             fake_image = self.g_model(self.fixed_noise, self.fixed_conditional)
             fake_image_path = self.save_visual_dir.joinpath(f"epoch_{self.current_epoch:04d}.jpg")
-            vutils.save_image(fake_image.detach(), fake_image_path, normalize=True)
+            vutils.save_image(fake_image.detach(), fake_image_path, pad_value=255, normalize=True)
             LOGGER.info(f"Save fake image to `{fake_image_path}`")
 
 

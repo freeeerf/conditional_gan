@@ -12,12 +12,13 @@ __all__ = [
 
 
 class Discriminator(nn.Module):
-    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10) -> None:
+    def __init__(self, image_size: int = 28, channels: int = 1, dropout:float=0.5, num_classes: int = 10) -> None:
         """Discriminator model architecture.
 
         Args:
             image_size (int, optional): Size of the generated square image (height = width). Default is 28 (e.g., for MNIST).
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
+            dropout (float, optional): Dropout rate. Default is 0.5.
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
         """
         super().__init__()
@@ -26,12 +27,17 @@ class Discriminator(nn.Module):
 
         self.backbone = nn.Sequential(
             nn.Linear(channels * image_size * image_size + num_classes, 512),
-            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.LeakyReLU(0.2, True),
 
-            nn.Linear(512, 256),
-            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.Linear(512, 512),
+            nn.LeakyReLU(0.2, True),
+            nn.Dropout(dropout),
 
-            nn.Linear(256, 1),
+            nn.Linear(512, 512),
+            nn.LeakyReLU(0.2, True),
+            nn.Dropout(dropout),
+
+            nn.Linear(512, 1),
             nn.Sigmoid()
         )
 

@@ -38,13 +38,13 @@ class VanillaNet(nn.Module):
 
             nn.Linear(256, 512),
             nn.BatchNorm1d(512),
-            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.LeakyReLU(0.2, True),
 
             nn.Linear(512, 1024),
             nn.BatchNorm1d(1024),
-            nn.LeakyReLU(negative_slope=0.2, inplace=True),
+            nn.LeakyReLU(0.2, True),
 
-            nn.Linear(1024, channels * image_size * image_size),
+            nn.Linear(1024, int(channels * image_size * image_size)),
             nn.Tanh()
         )
 

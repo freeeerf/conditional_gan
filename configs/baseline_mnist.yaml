@@ -76,4 +76,4 @@ TRAIN:
 
   # train results
   OUTPUT_DIR: "results/train"
-  VERBOSE: True
+  VERBOSE: False
