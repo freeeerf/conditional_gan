@@ -7,12 +7,12 @@ from torch import nn
 from conditional_gan.utils.torch_utils import initialize_weights
 
 __all__ = [
-    "Discriminator",
+    "DiscriminatorForVanilla",
 ]
 
 
-class Discriminator(nn.Module):
-    def __init__(self, image_size: int = 28, channels: int = 1, dropout:float=0.5, num_classes: int = 10) -> None:
+class DiscriminatorForVanilla(nn.Module):
+    def __init__(self, image_size: int = 28, channels: int = 1, dropout: float = 0.5, num_classes: int = 10) -> None:
         """Discriminator model architecture.
 
         Args:

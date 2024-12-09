@@ -22,7 +22,7 @@ def get_opts() -> argparse.Namespace:
         help="device to use. Default is 0",
     )
     parser.add_argument(
-        "--conditional-index",
+        "-i", "--conditional-index",
         default=0,
         type=int,
         help="conditional index. Default is 0",

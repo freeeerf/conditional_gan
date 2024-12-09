@@ -11,7 +11,8 @@ from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from torchvision import utils as vutils
-from conditional_gan.models.discriminator import Discriminator
+
+from conditional_gan.models.discriminator_for_vanilla import DiscriminatorForVanilla
 from conditional_gan.models.vanilla_net import VanillaNet
 from conditional_gan.utils.checkpoint import load_state_dict, save_checkpoint, strip_optimizer
 from conditional_gan.utils.envs import select_device, set_seed_everything
@@ -185,9 +186,9 @@ class Trainer:
     def get_d_model(self) -> nn.Module:
         model_d_type = self.model_config_dict.D.TYPE
         if model_d_type == "discriminator":
-            d_model = Discriminator(image_size=self.model_config_dict.G.IMAGE_SIZE,
-                                    channels=self.model_config_dict.G.CHANNELS,
-                                    num_classes=self.model_config_dict.G.NUM_CLASSES)
+            d_model = DiscriminatorForVanilla(image_size=self.model_config_dict.G.IMAGE_SIZE,
+                                              channels=self.model_config_dict.G.CHANNELS,
+                                              num_classes=self.model_config_dict.G.NUM_CLASSES)
         else:
             raise NotImplementedError(f"Model type `{model_d_type}` is not implemented.")
 
