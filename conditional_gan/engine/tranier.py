@@ -157,6 +157,16 @@ class Trainer:
                     transforms.Normalize((0.5,), (0.5,))]),
                 download=True,
             )
+        elif self.dataset_train_name == "image_folder":
+            train_dataset = torchvision.datasets.ImageFolder(
+                self.dataset_train_root,
+                transform=transforms.Compose([
+                    transforms.Grayscale(num_output_channels=1),
+                    transforms.Resize((self.dataset_train_image_size, self.dataset_train_image_size)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(self.dataset_train_normalize_mean, self.dataset_train_normalize_std),
+                ]),
+            )
         else:
             raise NotImplementedError(f"Dataset `{self.dataset_train_name}` is not implemented. Only support [`mnist`, `fashion_mnist`].")
 
