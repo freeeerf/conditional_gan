@@ -1,6 +1,7 @@
 # Copyright (c) AlphaBetter. All rights reserved.
 import argparse
 
+import torch
 from omegaconf import OmegaConf
 
 from conditional_gan.engine import Trainer, init_train_env
@@ -17,6 +18,8 @@ def get_opts() -> argparse.Namespace:
 
 
 def main() -> None:
+    torch.set_float32_matmul_precision("high")
+
     opts = get_opts()
 
     config_dict = OmegaConf.load(opts.config_path)

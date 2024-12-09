@@ -1,38 +1,81 @@
 # Copyright (c) AlphaBetter. All rights reserved.
-from logging import lastResort
+import shutil
+from collections import OrderedDict
+from pathlib import Path
+from typing import Dict, Union
 
 import torch
 from torch import nn
-from typing import Dict, Union
-from pathlib import Path
+
 from .events import LOGGER
-import shutil
 
 __all__ = [
-    "load_state_dict", "save_checkpoint", "strip_optimizer",
+    "load_state_dict", "load_checkpoint", "save_checkpoint", "strip_optimizer",
 ]
 
 
-def load_state_dict(weights_path: str, model: nn.Module, map_location: torch.device) -> nn.Module:
-    """Load weights from checkpoint file, only assign weights those layers" name and shape are match.
+def load_state_dict(weights_path: Union[Path, str], model: nn.Module, device: torch.device = torch.device("cpu")) -> nn.Module:
+    """Load weights from checkpoint file, only assign weights those layers name and shape are match.
 
     Args:
-        weights_path (str): path to weights file.
+        weights_path (Union[Path, str]): path to weights file.
         model (nn.Module): model to load weights.
-        map_location (torch.device): device to load weights.
+        device (torch.device, optional): device to load model. Defaults to torch.device("cpu").
 
     Returns:
         nn.Module: model with weights loaded.
     """
-    checkpoint = torch.load(weights_path, map_location=map_location)
+    # Define compilation status keywords
+    compile_state = "_orig_mod"
+
+    checkpoint = torch.load(str(weights_path), map_location=torch.device("cpu"))
     state_dict = checkpoint["model"].float().state_dict()
+    new_state_dict = OrderedDict()
+
+    # Check if the model has been compiled
+    for k, v in state_dict.items():
+        current_compile_state = k.split(".")[0]
+        # load the model
+        if current_compile_state != compile_state:
+            name = compile_state + "." + k
+        elif current_compile_state == compile_state:
+            name = k[10:]
+        else:
+            name = k
+        new_state_dict[name] = v
+    state_dict = new_state_dict
 
     # filter out unnecessary keys
     model_state_dict = model.state_dict()
-    state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict and v.shape == model_state_dict[k].shape}
+    new_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict and v.shape == model_state_dict[k].shape}
 
-    model.load_state_dict(state_dict, strict=False)
-    del checkpoint, state_dict, model_state_dict
+    model_state_dict.update(new_state_dict)
+    model.load_state_dict(model_state_dict, strict=False)
+    model = model.to(device)
+    del checkpoint, state_dict, new_state_dict, model_state_dict
+    return model
+
+
+def load_checkpoint(weights_path: Union[Path, str], device: torch.device = torch.device("cpu")) -> nn.Module:
+    """Load model from a checkpoint file.
+
+    Args:
+        weights_path (Union[Path, str]): Path to the weights file.
+        device (torch.device, optional): Device to load the model. Defaults to torch.device("cpu").
+
+    Returns:
+        torch.nn.Module: The model with the weights loaded.
+    """
+    weights_path = Path(weights_path)
+
+    if not weights_path.exists():
+        LOGGER.error(f"No weights file found at `{weights_path}`")
+
+    LOGGER.info(f"Loading checkpoint from `{weights_path}`")
+    checkpoint = torch.load(weights_path, map_location=torch.device("cpu"), weights_only=False)
+    model = checkpoint["ema" if checkpoint.get("ema") else "model"].float()
+    model = model.to(device)
+    model = model.eval()
     return model
 
 

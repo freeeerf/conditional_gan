@@ -1,8 +1,9 @@
 # Copyright (c) AlphaBetter. All rights reserved.
 import argparse
-
-from omegaconf import OmegaConf
 from pathlib import Path
+
+import torch
+
 from conditional_gan.engine.inferencer import Inferencer
 
 
@@ -48,6 +49,8 @@ def get_opts() -> argparse.Namespace:
 
 
 def main() -> None:
+    torch.set_float32_matmul_precision("high")
+
     opts = get_opts()
 
     inferencer = Inferencer(opts.weights, opts.device)

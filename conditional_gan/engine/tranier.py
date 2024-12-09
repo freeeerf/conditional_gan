@@ -171,10 +171,13 @@ class Trainer:
                                  latent_dim=self.model_config_dict.G.LATENT_DIM)
         else:
             raise NotImplementedError(f"Model type `{model_g_type}` is not implemented.")
+
         g_model = g_model.to(self.device)
+        g_model = torch.compile(g_model)
+
         if self.g_weights_path:
             LOGGER.info(f"Loading state_dict from {self.g_weights_path} for fine-tuning...")
-            g_model = load_state_dict(self.g_weights_path, g_model, map_location=self.device)
+            g_model = load_state_dict(self.g_weights_path, g_model, device=self.device)
 
         return g_model
 
@@ -186,10 +189,13 @@ class Trainer:
                                     num_classes=self.model_config_dict.G.NUM_CLASSES)
         else:
             raise NotImplementedError(f"Model type `{model_d_type}` is not implemented.")
+
         d_model = d_model.to(self.device)
+        d_model = torch.compile(d_model)
+
         if self.d_weights_path:
             LOGGER.info(f"Loading state_dict from {self.d_weights_path} for fine-tuning...")
-            d_model = load_state_dict(self.d_weights_path, d_model, map_location=self.device)
+            d_model = load_state_dict(self.d_weights_path, d_model, device=self.device)
 
         return d_model
 
