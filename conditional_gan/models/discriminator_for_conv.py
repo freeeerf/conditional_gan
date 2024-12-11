@@ -11,11 +11,11 @@ __all__ = [
 
 
 class DiscriminatorForConv(nn.Module):
-    def __init__(self, image_size: int = 64, channels: int = 1, num_classes: int = 10) -> None:
+    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10) -> None:
         """Discriminator model architecture.
 
         Args:
-            image_size (int, optional): Size of the generated square image (height = width). Default is 64
+            image_size (int, optional): Size of the generated square image (height = width). Default is 28
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
         """
@@ -25,29 +25,27 @@ class DiscriminatorForConv(nn.Module):
         self.num_classes = num_classes
 
         # Embedding layer for the labels.
-        self.embed_size = int(math.sqrt(image_size))
         self.label_embedding = nn.Sequential(
-            nn.Linear(self.num_classes, int(self.embed_size * self.embed_size * self.image_size)),
+            nn.Linear(self.num_classes, int(self.channels * self.image_size * self.image_size)),
             nn.LeakyReLU(0.2, True),
         )
 
         self.backbone = nn.Sequential(
-            nn.Conv2d(self.channels + 1, 64, (4, 4), (2, 2), (1, 1), bias=True),
+            nn.Conv2d(self.channels + 1, 64, 3),
             nn.LeakyReLU(0.2, True),
 
-            nn.Conv2d(64, 128, (4, 4), (2, 2), (1, 1), bias=False),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(64, 128, 3),
+            nn.LeakyReLU(0.2, True),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(128, 256, 3),
+            nn.LeakyReLU(0.2, True),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(256, 512, 3),
             nn.LeakyReLU(0.2, True),
 
-            nn.Conv2d(128, 256, (4, 4), (2, 2), (1, 1), bias=False),
-            nn.BatchNorm2d(256),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(256, 512, (4, 4), (2, 2), (1, 1), bias=False),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU(0.2, True),
-
-            nn.Conv2d(512, self.channels, (4, 4), (1, 1), (0, 0)),
+            nn.Conv2d(512, self.channels, 3),
         )
 
         # Initializing all neural network weights.

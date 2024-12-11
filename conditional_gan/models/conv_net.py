@@ -3,7 +3,7 @@ from typing import List
 
 import torch
 from torch import nn
-import math
+
 from conditional_gan.utils.torch_utils import initialize_weights
 
 __all__ = [
@@ -12,11 +12,11 @@ __all__ = [
 
 
 class ConvNet(nn.Module):
-    def __init__(self, image_size: int = 64, channels: int = 1, num_classes: int = 10, latent_dim: int = 100) -> None:
+    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10, latent_dim: int = 100) -> None:
         """Implementation of the Conditional GAN model using Convolutional Neural Networks.
 
         Args:
-            image_size (int, optional): Size of the generated square image (height = width). Default is 64.
+            image_size (int, optional): Size of the generated square image (height = width). Default is 28.
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
             latent_dim (int, optional): Dimension of the latent noise vector. Default is 100.
@@ -28,9 +28,8 @@ class ConvNet(nn.Module):
         self.latent_dim = latent_dim
 
         # Embedding layer for the labels.
-        self.embed_size = int(math.sqrt(image_size))
         self.label_embedding = nn.Sequential(
-            nn.Linear(self.latent_dim + self.num_classes, self.embed_size * self.embed_size * self.latent_dim),
+            nn.Linear(self.latent_dim + self.num_classes, 7 * 7 * self.latent_dim),
             nn.LeakyReLU(0.2, True),
         )
 
@@ -39,16 +38,27 @@ class ConvNet(nn.Module):
             nn.BatchNorm2d(512),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(512, 256, 5, bias=False),
+            nn.ConvTranspose2d(512, 512, 4, bias=False),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True),
+
+            nn.ConvTranspose2d(512, 256, 4, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(256, 128, (4, 4), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.ConvTranspose2d(256, 256, 4, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+
+            nn.ConvTranspose2d(256, 128, 4, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
 
+            nn.ConvTranspose2d(128, 64, 3, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
 
-            nn.ConvTranspose2d(128, self.channels, (4, 4), stride=(2, 2), padding=(1, 1)),
+            nn.ConvTranspose2d(64, self.channels, 4),
 
             nn.Tanh()
         )
@@ -73,5 +83,5 @@ class ConvNet(nn.Module):
             raise ValueError("Labels must be provided for conditional generation.")
 
         x = torch.cat([x, labels], 1)
-        x = self.label_embedding(x).reshape(-1, self.latent_dim, self.embed_size, self.embed_size)
+        x = self.label_embedding(x).reshape(-1, self.latent_dim, 7, 7)
         return self.backbone(x)
