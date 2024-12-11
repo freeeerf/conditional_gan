@@ -8,6 +8,7 @@ import torchvision.datasets
 from omegaconf import DictConfig, OmegaConf
 from torch import nn
 from torch import optim
+from torch.nn import functional as F_torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from torchvision import utils as vutils
@@ -109,12 +110,12 @@ class Trainer:
         if self.model_config_dict.G.TYPE == "vanilla_net":
             self.fixed_noise = torch.randn([self.train_batch_size, self.model_config_dict.G.LATENT_DIM], device=device)
             self.fixed_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (self.train_batch_size,), device=device)
-        # elif self.model_config_dict.G.TYPE == "conv_net":
-        #     self.fixed_noise = torch.randn([self.train_batch_size, self.model_config_dict.G.LATENT_DIM, 1, 1], device=device)
-        #     self.fake_conditional = torch.randint(0,
-        #                                           self.model_config_dict.G.NUM_CLASSES - 1,
-        #                                           (self.train_batch_size, self.model_config_dict.G.NUM_CLASSES),
-        #                                           device=self.device)
+        elif self.model_config_dict.G.TYPE == "conv_net":
+            self.fixed_noise = torch.randn([self.train_batch_size, self.model_config_dict.G.LATENT_DIM], device=device)
+            self.fixed_conditional = torch.randint(0,
+                                                   self.model_config_dict.G.NUM_CLASSES - 1,
+                                                   (self.train_batch_size, self.model_config_dict.G.NUM_CLASSES),
+                                                   device=self.device)
         else:
             raise NotImplementedError(f"Model type `{self.model_config_dict.G.TYPE}` is not implemented.")
         self.save_visual_dir = self.save_dir.joinpath("visual")
@@ -189,11 +190,11 @@ class Trainer:
                                  channels=self.model_config_dict.G.CHANNELS,
                                  num_classes=self.model_config_dict.G.NUM_CLASSES,
                                  latent_dim=self.model_config_dict.G.LATENT_DIM)
-        # elif model_g_type == "conv_net":
-        #     g_model = ConvNet(image_size=self.model_config_dict.G.IMAGE_SIZE,
-        #                       channels=self.model_config_dict.G.CHANNELS,
-        #                       num_classes=self.model_config_dict.G.NUM_CLASSES,
-        #                       latent_dim=self.model_config_dict.G.LATENT_DIM)
+        elif model_g_type == "conv_net":
+            g_model = ConvNet(image_size=self.model_config_dict.G.IMAGE_SIZE,
+                              channels=self.model_config_dict.G.CHANNELS,
+                              num_classes=self.model_config_dict.G.NUM_CLASSES,
+                              latent_dim=self.model_config_dict.G.LATENT_DIM)
         else:
             raise NotImplementedError(f"Model type `{model_g_type}` is not implemented.")
 
@@ -212,10 +213,10 @@ class Trainer:
             d_model = DiscriminatorForVanilla(image_size=self.model_config_dict.G.IMAGE_SIZE,
                                               channels=self.model_config_dict.G.CHANNELS,
                                               num_classes=self.model_config_dict.G.NUM_CLASSES)
-        # elif model_d_type == "discriminator_for_conv":
-        #     d_model = DiscriminatorForConv(image_size=self.model_config_dict.G.IMAGE_SIZE,
-        #                                    channels=self.model_config_dict.G.CHANNELS,
-        #                                    num_classes=self.model_config_dict.G.NUM_CLASSES)
+        elif model_d_type == "discriminator_for_conv":
+            d_model = DiscriminatorForConv(image_size=self.model_config_dict.G.IMAGE_SIZE,
+                                           channels=self.model_config_dict.G.CHANNELS,
+                                           num_classes=self.model_config_dict.G.NUM_CLASSES)
         else:
             raise NotImplementedError(f"Model type `{model_d_type}` is not implemented.")
 
@@ -296,18 +297,18 @@ class Trainer:
         return d_lr_scheduler
 
     def get_loss(self, loss_type: str) -> nn:
-        if loss_type not in ["l1_loss", "l2_loss", "bce_loss"]:
-            raise NotImplementedError(
-                f"Loss type {loss_type} is not implemented. Only support [`l1_loss`, `l2_loss`, `bce_loss`].")
-
         if loss_type == "l1_loss":
             criterion = nn.L1Loss()
         elif loss_type == "l2_loss":
             criterion = nn.MSELoss()
         elif loss_type == "bce_loss":
             criterion = nn.BCELoss()
-        else:
+        elif loss_type == "bce_with_logits_loss":
             criterion = nn.BCEWithLogitsLoss()
+        else:
+            raise NotImplementedError(
+                f"Loss type {loss_type} is not implemented. Only support [`l1_loss`, `l2_loss`, `bce_loss`, `bce_with_logits_loss`]."
+            )
 
         criterion = criterion.to(device=self.device)
         return criterion
@@ -390,17 +391,13 @@ class Trainer:
             # The real sample label is 1, and the generated sample label is 0.
             real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
             fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
+            num_classes = self.model_config_dict.G.NUM_CLASSES
             if self.model_config_dict.G.TYPE == "vanilla_net":
                 noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM], device=self.device)
-                fake_conditional = torch.randint(0, self.model_config_dict.G.NUM_CLASSES - 1, (batch_size,), device=self.device)
-            # elif self.model_config_dict.G.TYPE == "conv_net":
-            #     target = F_torch.one_hot(torch.arange(self.model_config_dict.G.NUM_CLASSES), self.model_config_dict.G.NUM_CLASSES)[target.cpu()].to(
-            #         self.device).float()
-            #     noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM, 1, 1], device=self.device)
-            #     fake_conditional = torch.randint(0,
-            #                                      self.model_config_dict.G.NUM_CLASSES - 1,
-            #                                      (batch_size, self.model_config_dict.G.NUM_CLASSES),
-            #                                      device=self.device)
+                conditional = torch.randint(0, num_classes - 1, (batch_size,), device=self.device)
+            elif self.model_config_dict.G.TYPE == "conv_net":
+                noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM], device=self.device)
+                conditional = F_torch.one_hot(target, num_classes).to(self.device).float()
             else:
                 raise NotImplementedError(f"Model type `{self.model_config_dict.G.TYPE}` is not implemented.")
 
@@ -413,7 +410,7 @@ class Trainer:
 
             # Train with real.
             with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                real_output = self.d_model(inputs, target)
+                real_output = self.d_model(inputs, conditional)
                 d_loss_real = self.adv_criterion(real_output, real_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples
@@ -422,8 +419,8 @@ class Trainer:
 
             # Train with fake.
             with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                fake = self.g_model(noise, fake_conditional)
-                fake_output = self.d_model(fake.detach(), fake_conditional)
+                fake = self.g_model(noise, conditional)
+                fake_output = self.d_model(fake.detach(), conditional)
                 d_loss_fake = self.adv_criterion(fake_output, fake_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples
@@ -444,7 +441,7 @@ class Trainer:
             self.g_optimizer.zero_grad()
 
             with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
-                fake_output = self.d_model(fake, fake_conditional)
+                fake_output = self.d_model(fake, conditional)
                 g_loss = self.adv_criterion(fake_output, real_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples

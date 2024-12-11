@@ -3,7 +3,7 @@ from typing import List
 
 import torch
 from torch import nn
-
+import math
 from conditional_gan.utils.torch_utils import initialize_weights
 
 __all__ = [
@@ -12,11 +12,11 @@ __all__ = [
 
 
 class ConvNet(nn.Module):
-    def __init__(self, image_size: int = 28, channels: int = 1, num_classes: int = 10, latent_dim: int = 100) -> None:
-        """Implementation of the Vanilla GAN model.
+    def __init__(self, image_size: int = 64, channels: int = 1, num_classes: int = 10, latent_dim: int = 100) -> None:
+        """Implementation of the Conditional GAN model using Convolutional Neural Networks.
 
         Args:
-            image_size (int, optional): Size of the generated square image (height = width). Default is 28 (e.g., for MNIST).
+            image_size (int, optional): Size of the generated square image (height = width). Default is 64.
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
             latent_dim (int, optional): Dimension of the latent noise vector. Default is 100.
@@ -24,34 +24,35 @@ class ConvNet(nn.Module):
         super().__init__()
         self.image_size = image_size
         self.channels = channels
+        self.num_classes = num_classes
+        self.latent_dim = latent_dim
 
-        # Generate a random matrix of size (num_classes, num_classes)
-        self.label_embedding = nn.Embedding(num_classes, num_classes)
+        # Embedding layer for the labels.
+        self.embed_size = int(math.sqrt(image_size))
+        self.label_embedding = nn.Sequential(
+            nn.Linear(self.latent_dim + self.num_classes, self.embed_size * self.embed_size * self.latent_dim),
+            nn.LeakyReLU(0.2, True),
+        )
 
         self.backbone = nn.Sequential(
-            nn.ConvTranspose2d(latent_dim, 512, (4, 4), (1, 1), (0, 0), bias=False),
+            nn.ConvTranspose2d(self.latent_dim, 512, (6, 6), stride=(1, 1), padding=(0, 0), bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(True),
 
-            # state size. 512 x 4 x 4
-            nn.ConvTranspose2d(512, 256, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(512, 256, (4, 4), stride=(1, 1), padding=(0, 0), bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
 
-            # state size. 256 x 8 x 8
-            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(256, 128, (4, 4), stride=(2, 2), padding=(1, 1), bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
 
-            # state size. 128 x 16 x 16
-            nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(128, 64, (3, 3), stride=(1, 1), padding=(1, 1), bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
 
-            # state size. 64 x 32 x 32
-            nn.ConvTranspose2d(64, channels, (4, 4), (2, 2), (1, 1), bias=True),
+            nn.ConvTranspose2d(64, self.channels, (4, 4), stride=(2, 2), padding=(1, 1)),
 
-            # state size. channels x 64 x 64
             nn.Tanh()
         )
 
@@ -59,7 +60,7 @@ class ConvNet(nn.Module):
         initialize_weights(self.modules())
 
     def forward(self, x: torch.Tensor, labels: List = None) -> torch.Tensor:
-        """Forward pass of the Vanilla GAN model.
+        """Forward pass of the Deep Conditional GAN model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, latent).
@@ -68,6 +69,12 @@ class ConvNet(nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, channels, image_size, image_size).
         """
-        conditional_inputs = torch.cat([x, self.label_embedding(labels)], -1)
-        x = self.backbone(conditional_inputs)
-        return x.reshape(x.size(0), self.channels, self.image_size, self.image_size)
+        if x.dim() != 2:
+            raise ValueError(f"Expected input tensor 'x' to have 2 dimensions, but got {x.dim()}.")
+
+        if labels is None:
+            raise ValueError("Labels must be provided for conditional generation.")
+
+        x = torch.cat([x, labels], 1)
+        x = self.label_embedding(x).reshape(-1, self.latent_dim, self.embed_size, self.embed_size)
+        return self.backbone(x)

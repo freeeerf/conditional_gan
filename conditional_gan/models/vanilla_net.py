@@ -51,12 +51,12 @@ class VanillaNet(nn.Module):
         # Initializing all neural network weights.
         initialize_weights(self.modules())
 
-    def forward(self, x: torch.Tensor, labels: List = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, labels: List) -> torch.Tensor:
         """Forward pass of the Vanilla GAN model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, latent).
-            labels (List, optional): List of labels for conditional generation. Default is None.
+            labels (List): List of labels for conditional generation.
 
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, channels, image_size, image_size).

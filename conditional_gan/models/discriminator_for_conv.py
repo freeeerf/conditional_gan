@@ -1,6 +1,5 @@
 # Copyright (c) AlphaBetter. All rights reserved.
-from typing import List
-
+import math
 import torch
 from torch import nn
 
@@ -12,64 +11,65 @@ __all__ = [
 
 
 class DiscriminatorForConv(nn.Module):
-    def __init__(self, image_size: int = 28, channels: int = 1, dropout: float = 0.5, num_classes: int = 10) -> None:
+    def __init__(self, image_size: int = 64, channels: int = 1, num_classes: int = 10) -> None:
         """Discriminator model architecture.
 
         Args:
-            image_size (int, optional): Size of the generated square image (height = width). Default is 28 (e.g., for MNIST).
+            image_size (int, optional): Size of the generated square image (height = width). Default is 64
             channels (int, optional): Number of channels in the generated image. Default is 1 (grayscale image).
-            dropout (float, optional): Dropout rate. Default is 0.5.
             num_classes (int, optional): Number of classes for conditional generation. Default is 10.
         """
         super().__init__()
         self.image_size = image_size
         self.channels = channels
+        self.num_classes = num_classes
 
         # Embedding layer for the labels.
+        self.embed_size = int(math.sqrt(image_size))
         self.label_embedding = nn.Sequential(
-            nn.Linear(num_classes, int(channels * image_size * image_size)),
+            nn.Linear(self.num_classes, int(self.embed_size * self.embed_size * self.image_size)),
             nn.LeakyReLU(0.2, True),
         )
 
         self.backbone = nn.Sequential(
-            nn.Conv2d(channels + 1, 64, 3, bias=True),
+            nn.Conv2d(self.channels + 1, 64, (4, 4), (2, 2), (1, 1), bias=True),
             nn.LeakyReLU(0.2, True),
 
-            nn.Conv2d(64, 128, 3, bias=False),
+            nn.Conv2d(64, 128, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, True),
-            nn.Dropout(dropout),
 
-            nn.Conv2d(128, 256, 3, bias=False),
+            nn.Conv2d(128, 256, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, True),
-            nn.Dropout(dropout),
 
-            nn.Conv2d(256, 512, 3, bias=False),
+            nn.Conv2d(256, 512, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, True),
-            nn.Dropout(dropout),
 
-            nn.Conv2d(512, channels, 3, bias=True),
-
-            nn.Sigmoid()
+            nn.Conv2d(512, self.channels, (4, 4), (1, 1), (0, 0)),
         )
 
         # Initializing all neural network weights.
         initialize_weights(self.modules())
 
-    def forward(self, x: torch.Tensor, labels: torch.Tensor = None) -> torch.Tensor:
-        """Forward pass of the Vanilla GAN model.
+    def forward(self, x: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the discriminator model.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, latent).
-            labels (torch.Tensor, optional): List of labels for conditional generation. Default is None.
+            labels (torch.Tensor): List of labels for conditional generation.
 
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, channels, image_size, image_size).
         """
-        label_embedding = self.label_embedding(labels)
-        label_embedding = label_embedding.view(label_embedding.size(0), self.channels, self.image_size, self.image_size)
-        x = torch.concat([x, label_embedding], 1)
+        if x.dim() != 4:
+            raise ValueError(f"Expected input tensor 'x' to have 4 dimensions, but got {x.dim()}.")
+
+        if labels is None:
+            raise ValueError("Labels must be provided for conditional generation.")
+
+        label_embedding = self.label_embedding(labels).reshape(-1, self.channels, self.image_size, self.image_size)
+        x = torch.cat([x, label_embedding], 1)
         x = self.backbone(x)
         return torch.flatten(x, 1)
