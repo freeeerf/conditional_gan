@@ -35,11 +35,11 @@ class ConvNet(nn.Module):
         )
 
         self.backbone = nn.Sequential(
-            nn.ConvTranspose2d(self.latent_dim, 512, (4, 4), stride=(1, 1), padding=(0, 0), bias=False),
+            nn.ConvTranspose2d(self.latent_dim, 512, 5, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(512, 256, (4, 4), stride=(1, 1), padding=(0, 0), bias=False),
+            nn.ConvTranspose2d(512, 256, 5, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
 
@@ -47,11 +47,8 @@ class ConvNet(nn.Module):
             nn.BatchNorm2d(128),
             nn.ReLU(True),
 
-            nn.ConvTranspose2d(128, 64, (4, 4), stride=(1, 1), padding=(0, 0), bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(True),
 
-            nn.ConvTranspose2d(64, self.channels, (4, 4), stride=(2, 2), padding=(0, 0)),
+            nn.ConvTranspose2d(128, self.channels, (4, 4), stride=(2, 2), padding=(1, 1)),
 
             nn.Tanh()
         )
