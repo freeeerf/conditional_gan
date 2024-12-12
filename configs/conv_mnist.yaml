@@ -67,7 +67,7 @@ TRAIN:
 
   # train hyper-parameters
   EPOCHS: 200
-  BATCH_SIZE: 16
+  BATCH_SIZE: 128
 
   # train setup
   LOCAL_RANK: -1
