@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "conditional_gan"
 dynamic = ["version"]
-description = "conditional_gan"
+description = "PyTorch implements `Conditional Generative Adversarial Networks` paper."
 readme = "README.md"
 requires-python = ">= 3.10"
 license.file = "LICENSE"
@@ -31,13 +31,13 @@ classifiers = [
 
 # Required dependencies
 dependencies = [
+    "albumentations>=2.0.0",
     "omegaconf",
-    "torch",
-    "torchvision",
-    "setuptools",
-    "PyYAML",
     "opencv-python",
-    "numpy",
+    "PyYAML",
+    "setuptools",
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
 ]
 
 [project.scripts]
