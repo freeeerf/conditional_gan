@@ -2,7 +2,7 @@
 EXP_NAME: "conv-mnist-28x28"
 
 # Envs
-DEVICE: "0"
+DEVICE: "mps"
 
 # Data
 DATASET:

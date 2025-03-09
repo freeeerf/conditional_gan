@@ -121,8 +121,15 @@ class Trainer:
         self.save_visual_dir = self.save_dir.joinpath("visual")
         self.save_visual_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize the mixed precision method
-        self.scaler = torch.amp.GradScaler(enabled=self.device.type != "cpu")
+        if torch.cuda.is_available():
+            # Initialize the mixed precision method
+            self.scaler = torch.amp.GradScaler(enabled=self.device.type != "cpu")
+            self.amp_enabled = True
+            self.non_blocking = True
+        else:
+            self.scaler = None
+            self.amp_enabled = False
+            self.non_blocking = False # mps不能使用non_blocking, 否则torch.full()会生成NaN的数据
 
         # Define the path to save the model
         self.save_checkpoint_dir = self.save_dir.joinpath("weights")
@@ -199,7 +206,10 @@ class Trainer:
             raise NotImplementedError(f"Model type `{model_g_type}` is not implemented.")
 
         g_model = g_model.to(self.device)
-        g_model = torch.compile(g_model)
+        
+        # mac上的mps不支持torch._dynamo, 所以不能调用torch.compile()
+        if not torch.backends.mps.is_available():
+            g_model = torch.compile(g_model)
 
         if self.g_weights_path:
             LOGGER.info(f"Loading state_dict from {self.g_weights_path} for fine-tuning...")
@@ -221,7 +231,10 @@ class Trainer:
             raise NotImplementedError(f"Model type `{model_d_type}` is not implemented.")
 
         d_model = d_model.to(self.device)
-        d_model = torch.compile(d_model)
+
+        # mac上的mps不支持torch._dynamo, 所以不能调用torch.compile()
+        if not torch.backends.mps.is_available():
+            d_model = torch.compile(d_model)
 
         if self.d_weights_path:
             LOGGER.info(f"Loading state_dict from {self.d_weights_path} for fine-tuning...")
@@ -384,13 +397,14 @@ class Trainer:
         end = time.time()
         for i, (inputs, target) in enumerate(self.train_dataloader):
             # Move datasets to special device.
-            inputs = inputs.to(device=self.device, non_blocking=True)
-            target = target.to(device=self.device, non_blocking=True)
+            inputs = inputs.to(device=self.device, non_blocking=self.non_blocking)
+            target = target.to(device=self.device, non_blocking=self.non_blocking)
             batch_size = inputs.size(0)
 
             # The real sample label is 1, and the generated sample label is 0.
-            real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
-            fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=True)
+            real_label = torch.full((batch_size, 1), 1, dtype=inputs.dtype).to(device=self.device, non_blocking=self.non_blocking)
+            fake_label = torch.full((batch_size, 1), 0, dtype=inputs.dtype).to(device=self.device, non_blocking=self.non_blocking)
+            
             num_classes = self.model_config_dict.G.NUM_CLASSES
             if self.model_config_dict.G.TYPE == "vanilla_net":
                 noise = torch.randn([batch_size, self.model_config_dict.G.LATENT_DIM], device=self.device)
@@ -409,28 +423,37 @@ class Trainer:
             self.d_model.zero_grad()
 
             # Train with real.
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+            with torch.amp.autocast("cuda", enabled=self.amp_enabled):
                 real_output = self.d_model(inputs, conditional)
                 d_loss_real = self.adv_criterion(real_output, real_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples
-            self.scaler.scale(d_loss_real).backward()
+            if self.scaler is not None:
+                self.scaler.scale(d_loss_real).backward()
+            else:
+                d_loss_real.backward()
             d_x = real_output.mean()
 
             # Train with fake.
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+            with torch.amp.autocast("cuda", enabled=self.amp_enabled):
                 fake = self.g_model(noise, conditional)
                 fake_output = self.d_model(fake.detach(), conditional)
                 d_loss_fake = self.adv_criterion(fake_output, fake_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples
-            self.scaler.scale(d_loss_fake).backward()
+            if self.scaler is not None:
+                self.scaler.scale(d_loss_fake).backward()
+            else:
+                d_loss_fake.backward()
 
             # Calculate the total discriminator loss value
             d_loss = d_loss_real + d_loss_fake
             d_g_z1 = fake_output.mean()
-            self.scaler.step(self.d_optimizer)
-            self.scaler.update()
+            if self.scaler is not None:
+                self.scaler.step(self.d_optimizer)
+                self.scaler.update()
+            else:
+                self.d_optimizer.step()
             # Finish training the discriminator model
 
             ##############################################
@@ -440,15 +463,19 @@ class Trainer:
             # Initialize generator model gradients
             self.g_optimizer.zero_grad()
 
-            with torch.amp.autocast("cuda", enabled=self.device.type != "cpu"):
+            with torch.amp.autocast("cuda", enabled=self.amp_enabled):
                 fake_output = self.d_model(fake, conditional)
                 g_loss = self.adv_criterion(fake_output, real_label)
             # Call the gradient scaling function in the mixed precision API to
             # bp the gradient information of the fake samples
-            self.scaler.scale(g_loss).backward()
-            # Encourage the generator to generate higher quality fake samples, making it easier to fool the discriminator
-            self.scaler.step(self.g_optimizer)
-            self.scaler.update()
+            if self.scaler is not None:
+                self.scaler.scale(g_loss).backward()
+                # Encourage the generator to generate higher quality fake samples, making it easier to fool the discriminator
+                self.scaler.step(self.g_optimizer)
+                self.scaler.update()
+            else:
+                g_loss.backward()
+                self.g_optimizer.step()
             d_g_z2 = fake_output.mean()
 
             # Statistical accuracy and loss value for terminal data output

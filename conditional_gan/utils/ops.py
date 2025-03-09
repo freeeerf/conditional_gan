@@ -44,7 +44,7 @@ def increment_name(path: Union[Path, str]) -> Path:
         path, suffix = (path.with_suffix(""), path.suffix) if path.is_file() else (path, "")
         new_path = path
         for number in range(1, 9999):
-            new_path = f"{path}{separator}{number}{suffix}"
+            new_path = f"{path}{separator}_{number}{suffix}"
             if not Path(new_path).exists():
                 break
         path = Path(new_path)
