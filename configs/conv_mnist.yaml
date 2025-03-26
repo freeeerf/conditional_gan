@@ -47,23 +47,27 @@ TRAIN:
     G:
       OPTIM:
         TYPE: "adam"
-        LR: 0.0002
+        LR: 0.1
         BETAS: [ 0.5, 0.999 ]
 
       LR_SCHEDULER:
-        TYPE: "constant"
+        TYPE: "step_lr"
         FACTOR: 1.0
         TOTAL_ITERS: 128
+        STEP_SIZE: 10
+        GAMMA: 0.1
     D:
       OPTIM:
         TYPE: "adam"
-        LR: 0.0002
+        LR: 0.1
         BETAS: [ 0.5, 0.999 ]
 
       LR_SCHEDULER:
-        TYPE: "constant"
+        TYPE: "step_lr"
         FACTOR: 1.0
         TOTAL_ITERS: 128
+        STEP_SIZE: 10
+        GAMMA: 0.1
 
   # train hyper-parameters
   EPOCHS: 200
