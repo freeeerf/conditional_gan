@@ -2,7 +2,7 @@
 EXP_NAME: "conv-mnist-28x28"
 
 # Envs
-DEVICE: "mps"
+DEVICE: "0"
 
 # Data
 DATASET:
@@ -47,11 +47,11 @@ TRAIN:
     G:
       OPTIM:
         TYPE: "adam"
-        LR: 0.1
+        LR: 0.001
         BETAS: [ 0.5, 0.999 ]
 
       LR_SCHEDULER:
-        TYPE: "step_lr"
+        TYPE: ""
         FACTOR: 1.0
         TOTAL_ITERS: 128
         STEP_SIZE: 10
@@ -59,11 +59,11 @@ TRAIN:
     D:
       OPTIM:
         TYPE: "adam"
-        LR: 0.1
+        LR: 0.001
         BETAS: [ 0.5, 0.999 ]
 
       LR_SCHEDULER:
-        TYPE: "step_lr"
+        TYPE: ""
         FACTOR: 1.0
         TOTAL_ITERS: 128
         STEP_SIZE: 10
@@ -75,7 +75,7 @@ TRAIN:
 
   # train setup
   LOCAL_RANK: -1
-  RANK: -1
+  RANK: 123
   WORLD_SIZE: 1
   DIST_URL: "env://"
 

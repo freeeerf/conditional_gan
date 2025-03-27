@@ -265,7 +265,7 @@ class Trainer:
     def get_g_lr_scheduler(self) -> optim.lr_scheduler:
         lr_scheduler_type = self.train_config_dict.SOLVER.G.LR_SCHEDULER.TYPE
         if lr_scheduler_type not in ["step_lr", "multistep_lr", "constant"]:
-            raise NotImplementedError(f"G scheduler {lr_scheduler_type} is not implemented. Only support [`step_lr`, `multistep_lr`, `constant`].")
+            return
 
         if lr_scheduler_type == "step_lr":
             g_lr_scheduler = optim.lr_scheduler.StepLR(
@@ -288,7 +288,7 @@ class Trainer:
     def get_d_lr_scheduler(self) -> optim.lr_scheduler:
         lr_scheduler_type = self.train_config_dict.SOLVER.D.LR_SCHEDULER.TYPE
         if lr_scheduler_type not in ["step_lr", "multistep_lr", "constant"]:
-            raise NotImplementedError(f"G scheduler {lr_scheduler_type} is not implemented. Only support [`step_lr`, `multistep_lr`, `constant`].")
+            return
 
         if lr_scheduler_type == "step_lr":
             d_lr_scheduler = optim.lr_scheduler.StepLR(
@@ -334,7 +334,8 @@ class Trainer:
                 self.g_model.load_state_dict(resume_state_dict, strict=True)
                 self.start_epoch = g_checkpoint["epoch"] + 1
                 self.g_optimizer.load_state_dict(g_checkpoint["optimizer"])
-                self.g_lr_scheduler.load_state_dict(g_checkpoint["scheduler"])
+                if self.g_lr_scheduler:
+                    self.g_lr_scheduler.load_state_dict(g_checkpoint["scheduler"])
                 LOGGER.info(f"Resumed g model from epoch {self.start_epoch}")
             else:
                 LOGGER.warning(f"Loading state_dict from {resume_g} failed, train from scratch...")
@@ -347,7 +348,8 @@ class Trainer:
                 self.d_model.load_state_dict(resume_state_dict, strict=True)
                 self.start_epoch = d_checkpoint["epoch"] + 1
                 self.d_optimizer.load_state_dict(d_checkpoint["optimizer"])
-                self.d_lr_scheduler.load_state_dict(d_checkpoint["scheduler"])
+                if self.d_lr_scheduler:
+                    self.d_lr_scheduler.load_state_dict(d_checkpoint["scheduler"])
                 LOGGER.info(f"Resumed d model from epoch {self.start_epoch}")
             else:
                 LOGGER.warning(f"Loading state_dict from {resume_d} failed, train from scratch...")
@@ -384,7 +386,7 @@ class Trainer:
     def before_epoch(self):
         self.g_model.train()
         self.d_model.train()
-        if self.rank != -1:
+        if self.rank != -1 and hasattr(self.train_dataloader.sampler, 'set_epoch'):
             self.train_dataloader.sampler.set_epoch(self.current_epoch)
 
     def train_one_epoch(self):
@@ -500,8 +502,10 @@ class Trainer:
 
     def after_epoch(self):
         # update g lr
-        self.g_lr_scheduler.step()
-        self.d_lr_scheduler.step()
+        if self.g_lr_scheduler:
+            self.g_lr_scheduler.step()
+        if self.d_lr_scheduler:
+            self.d_lr_scheduler.step()
 
         self.eval_model()
 
@@ -511,7 +515,7 @@ class Trainer:
             "ema": deepcopy(self.g_model).half(),
             "updates": None,
             "optimizer": self.g_optimizer.state_dict(),
-            "scheduler": self.g_lr_scheduler.state_dict(),
+            "scheduler": self.g_lr_scheduler.state_dict() if self.g_lr_scheduler else None,
             "epoch": self.current_epoch,
         }
         save_checkpoint(
@@ -529,7 +533,7 @@ class Trainer:
             "ema": None,
             "updates": None,
             "optimizer": self.d_optimizer.state_dict(),
-            "scheduler": self.d_lr_scheduler.state_dict(),
+            "scheduler": self.d_lr_scheduler.state_dict() if self.d_lr_scheduler else None,
             "epoch": self.current_epoch,
         }
         save_checkpoint(
